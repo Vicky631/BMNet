@@ -1,5 +1,5 @@
 DIR: 
-  dataset: "DIR_OF_FSC147_DATASET" # Remeber to download and place the generated txt file for dataset splitation! 
+  dataset: "/mnt/mydisk/wjj/dataset/FSC_147/" # Remeber to download and place the generated txt file for dataset splitation!
   exp: "bmnet+_pretrained" # If you unzip the provided checkpoints, the name of the folder containing pth file will be "bmnet+_pretrained".
                            # If you modify the folder name, set exp to the new folder name. If you want to test a trained model with our
                            # training code, set the corresponding exp name and snapshot directory. Model configuration shall be kept the same.
@@ -7,9 +7,9 @@ DIR:
 
 DATASET:
   name: "FSC147"
-  list_train: "DIR_OF_FSC147_DATASET/train.txt" 
-  list_val: "DIR_OF_FSC147_DATASET/val.txt"
-  list_test: "DIR_OF_FSC147_DATASET/test.txt" # If you want to evaluate model on validation set, modify "test.txt" to "val.txt".
+  list_train: "/mnt/mydisk/wjj/BMNet/data_list/train.txt"
+  list_val: "/mnt/mydisk/wjj/BMNet/data_list/val.txt"
+  list_test: "/mnt/mydisk/wjj/BMNet/data_list/test.txt" # If you want to evaluate model on validation set, modify "test.txt" to "val.txt".
   exemplar_number: 3
   downsampling_rate: 1
 
