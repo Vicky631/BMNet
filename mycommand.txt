@@ -1,0 +1,12 @@
+# 先修改脚本里的 python3.7 为 python3.7 -u（关键！）
+# 方式1：临时改命令执行（推荐）
+sed -i 's/python3.7/python3.7 -u/g' weakly_supervise_fscd_147.sh
+
+# 再执行脚本，同时强制 tee 行缓冲
+bash weakly_supervise_fscd_147.sh 2>&1 | stdbuf -oL tee weakly_supervise.log
+
+screen -r wjjDETR
+
+screen -ls
+
+tail -n 100 weakly_supervise.log

@@ -22,6 +22,7 @@ from engine import evaluate, train_one_epoch, visualization
 from models import build_model
 
 import matplotlib.pyplot as plt
+from FSC_147 import FSC147DatasetLoader
 
 plt.switch_backend('agg')
 
