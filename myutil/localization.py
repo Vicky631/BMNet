@@ -34,7 +34,6 @@ import torch
 import torch.nn.functional as F
 import cv2
 from scipy.spatial import distance
-import os
 
 
 def LMDS_counting(input, w_fname, f_loc):
@@ -234,7 +233,7 @@ def get_pred_points_from_density(density_map):
 
     # ===================== 第四步：阈值过滤（修复阈值逻辑） =====================
     # 修复：阈值应基于归一化后的最大值（1.0），而非原始input_max
-    threshold = 50 / 255.0  # ≈0.235（归一化后固定阈值）
+    threshold = 85 / 255.0  # ≈0.235（归一化后固定阈值）
     # 原错误：input < 60/255 * input_max → 改为input < threshold
     input_filtered[input_filtered < threshold] = 0
     input_filtered[input_filtered > 0] = 1  # 二值化
@@ -264,9 +263,9 @@ def get_pred_points_from_density(density_map):
             debug_info["失败原因"] = "坐标提取异常（空坐标）"
 
     # 打印完整调试日志
-    print(f"\n【get_pred_points_from_density 调试日志】")
-    for k, v in debug_info.items():
-        print(f"  {k}: {v}")
+    # print(f"\n【get_pred_points_from_density 调试日志】")
+    # for k, v in debug_info.items():
+    #     print(f"  {k}: {v}")
 
     return pred_points
 
@@ -426,30 +425,8 @@ def evaluate_detection_metrics(pred_density_map, gt_points, distance_thresh=10.0
     返回:
         tuple: (f1, ap, ar, precision, recall)
     """
-    # ==================== 新增：可视化GT点 ====================
-    gt_vis_path = f"/mnt/mydisk/wjj/FamNet/tmp/gt_points.png"
-    visualize_points_on_density(
-        pred_density_map,
-        gt_points,
-        gt_vis_path,
-        title=f"GT Points (Count: {len(gt_points)})",
-        color=(0, 0, 255),  # GT点用红色
-        radius=2
-    )
-
     # 1. 从密度图提取预测点
     pred_points = get_pred_points_from_density(pred_density_map)
-
-    # ==================== 新增：可视化预测点 ====================
-    pred_vis_path = f"/mnt/mydisk/wjj/FamNet/tmp/pred_points.png"
-    visualize_points_on_density(
-        pred_density_map,
-        pred_points,
-        pred_vis_path,
-        title=f"Pred Points (Count: {len(pred_points)})",
-        color=(0, 255, 0),  # 预测点用绿色
-        radius=2
-    )
 
     # 2. 转换GT点格式为numpy数组
     if isinstance(gt_points, torch.Tensor):
@@ -464,47 +441,48 @@ def evaluate_detection_metrics(pred_density_map, gt_points, distance_thresh=10.0
     return f1, precision, recall
 
 
-def visualize_points_on_density(density_map, points, save_path, title, color=(0, 255, 0), radius=2):
+def calculate_mae_mse(predictions, ground_truths, accumulated_mae=0, accumulated_mse=0):
     """
-    将点绘制在密度图上并保存
+    计算MAE（平均绝对误差）和MSE（均方误差），支持单次计算或累加计算
 
     参数:
-        density_map (torch.Tensor): 预测密度图 (H, W)
-        points (np.ndarray): 点坐标数组 (N, 2) [x, y]
-        save_path (str): 保存路径
-        title (str): 图像标题
-        color (tuple): 绘制点的颜色 (B, G, R)
-        radius (int): 绘制点的半径
+        predictions: 预测值列表/数组/单个数值（模型输出的count）
+        ground_truths: 真实值列表/数组/单个数值（gtcount，会自动提取item）
+        accumulated_mae: 累计的MAE值，用于批量迭代时的累加（默认0）
+        accumulated_mse: 累计的MSE值，用于批量迭代时的累加（默认0）
+
+    返回:
+        total_mae: 累计的绝对误差总和
+        total_mse: 累计的平方误差总和
+        avg_mae: 平均绝对误差（MAE）
+        avg_mse: 均方误差（MSE）
     """
-    # 创建保存目录
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    # 处理单个数值的情况，统一转为列表方便遍历
+    if not isinstance(predictions, (list, tuple)):
+        predictions = [predictions]
+    if not isinstance(ground_truths, (list, tuple)):
+        ground_truths = [ground_truths]
 
-    # 将密度图转换为可显示的图像格式
-    if isinstance(density_map, torch.Tensor):
-        density_np = density_map.cpu().numpy()
-    else:
-        density_np = density_map
+    # 校验输入长度一致
+    if len(predictions) != len(ground_truths):
+        raise ValueError("预测值和真实值的数量必须一致！")
 
-    # 归一化到0-255范围用于显示
-    density_normalized = (density_np - density_np.min()) / (density_np.max() - density_np.min() + 1e-8)
-    density_normalized = (density_normalized * 255).astype(np.uint8)
+    total_mae = accumulated_mae
+    total_mse = accumulated_mse
+    n = len(predictions)  # 本次计算的数据量
 
-    # 转换为彩色图像
-    density_rgb = cv2.cvtColor(density_normalized, cv2.COLOR_GRAY2BGR)
+    # 遍历计算并累加误差
+    for pred, gt in zip(predictions, ground_truths):
+        # 提取gt的item（适配tensor等需要.item()的类型）
+        gt_value = gt.item() if hasattr(gt, 'item') else gt
+        # 计算单个误差
+        error = abs(pred - gt_value)
+        total_mae += error
+        total_mse += error ** 2
 
-    # 绘制点
-    if points is not None and len(points) > 0:
-        for (x, y) in points:
-            # 确保坐标是整数且在图像范围内
-            x_int = int(round(x))
-            y_int = int(round(y))
-            if 0 <= x_int < density_rgb.shape[1] and 0 <= y_int < density_rgb.shape[0]:
-                cv2.circle(density_rgb, (x_int, y_int), radius, color, -1)
+    # 计算平均值（累计+本次的总数量）
+    total_samples = (accumulated_mae > 0) * (accumulated_mae / (total_mae - accumulated_mae) * n) + n
+    avg_mae = total_mae / total_samples
+    avg_mse = total_mse / total_samples
 
-    # 添加标题文本
-    cv2.putText(density_rgb, title, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                1, (255, 255, 255), 2, cv2.LINE_AA)
-
-    # 保存图像
-    cv2.imwrite(save_path, density_rgb)
-    print(f"可视化图像已保存至: {save_path}")
+    return total_mae, total_mse, avg_mae, avg_mse

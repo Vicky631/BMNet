@@ -12,9 +12,6 @@ from tqdm import tqdm
 class FSC147DatasetLoader:
     """
     FSC147数据集加载类（支持：无缩放 / 等比例缩放 / 拉伸）
-    兼容两种点标注格式：
-    1. 平铺式：{"points": [[x1,y1], [x2,y2], ...]}
-    2. 嵌套式：{"annotations": [{"points": [x1,y1]}, ...]}
     """
 
     def __init__(self,
@@ -49,60 +46,17 @@ class FSC147DatasetLoader:
         else:  # none
             return 1.0, 1.0
 
-    def _parse_points(self, target: dict) -> torch.Tensor:
-        """
-        兼容两种点标注格式的解析函数
-        :param target: 单张图片的标注字典
-        :return: 点坐标张量 [N, 2]
-        """
-        # 格式1：平铺式 points 直接存在
-        if 'points' in target and isinstance(target['points'], list):
-            points = torch.tensor(target['points'], dtype=torch.float32)
-        # 格式2：嵌套式 annotations 下的 points
-        elif 'annotations' in target and isinstance(target['annotations'], (dict, list)):
-            # 处理 annotations 是字典的情况（如 {0: {...}, 1: {...}}）
-            if isinstance(target['annotations'], dict):
-                annotations = list(target['annotations'].values())
-            else:  # list 情况
-                annotations = target['annotations']
-
-            # 提取每个annotation的points并展平
-            points_list = []
-            for ann in annotations:
-                if 'points' in ann and isinstance(ann['points'], list):
-                    # 兼容 points 是 [[x,y]] 或 [x,y] 两种子格式
-                    if len(ann['points']) > 0 and isinstance(ann['points'][0], list):
-                        points_list.extend(ann['points'])
-                    else:
-                        points_list.append(ann['points'])
-
-            points = torch.tensor(points_list, dtype=torch.float32)
-        else:
-            raise ValueError(f"不支持的点标注格式！目标字典键：{list(target.keys())}")
-
-        # 确保是二维张量 [N, 2]
-        if points.ndim == 1:
-            points = points.unsqueeze(0)
-
-        return points
-
     def _preprocess_annotations(self):
         self.annotation_cache = {}
         for fname in tqdm(self.annotations.keys(), desc="Preprocessing annotations"):
             target = self.annotations[fname]
-            orig_w, orig_h = target['W'], target['H']
+            orig_w, orig_h = target['width'], target['height']
             scale_w, scale_h = self._calculate_scale(orig_w, orig_h)
 
-            # 兼容两种格式解析点坐标
-            orig_points = self._parse_points(target)
+            points_list = [target['annotations'][l]['points'] for l in target['annotations']]
+            orig_points = torch.tensor(points_list, dtype=torch.float32)
+            orig_boxes = torch.tensor(target['box_examples_coordinates'], dtype=torch.float32)
 
-            # 解析示例框（两种格式的box字段通常一致）
-            if 'box_examples_coordinates' in target:
-                orig_boxes = torch.tensor(target['box_examples_coordinates'], dtype=torch.float32)
-            else:
-                raise KeyError(f"未找到示例框标注 'box_examples_coordinates' - {fname}")
-
-            # 缩放坐标
             scaled_points = orig_points.clone()
             scaled_points[:, 0] *= scale_w
             scaled_points[:, 1] *= scale_h
@@ -207,24 +161,11 @@ def visualize_annotations(img, points, boxes, save_path):
     if isinstance(boxes, torch.Tensor):
         boxes = boxes.numpy()
 
-    # 兼容可能的维度问题（确保points是[N,2]）
-    if points.ndim == 1:
-        points = points.reshape(-1, 2)
-
-    # 绘制点标注
     for (x, y) in points:
         cv2.circle(img_cv, (int(x), int(y)), radius=5, color=(0, 0, 255), thickness=-1)
 
-    # 绘制示例框（兼容boxes可能的维度）
-    if boxes.ndim == 2 and boxes.shape[1] == 4:
-        for (x1, y1, x2, y2) in boxes:
-            cv2.rectangle(img_cv, (int(x1), int(y1)), (int(x2), int(y2)), color=(0, 255, 0), thickness=2)
-    # 兼容box是嵌套格式 [[x1,y1],[x2,y2]] 的情况
-    elif boxes.ndim == 3 and boxes.shape[1:] == (4, 2):
-        for box in boxes:
-            x1, y1 = box[0][0], box[0][1]
-            x2, y2 = box[2][0], box[2][1]
-            cv2.rectangle(img_cv, (int(x1), int(y1)), (int(x2), int(y2)), color=(0, 255, 0), thickness=2)
+    for (x1, y1, x2, y2) in boxes:
+        cv2.rectangle(img_cv, (int(x1), int(y1)), (int(x2), int(y2)), color=(0, 255, 0), thickness=2)
 
     cv2.imwrite(save_path, img_cv)
     print(f"可视化已保存: {save_path}")

@@ -18,7 +18,8 @@ from config import cfg
 import util.misc as utils
 from loss import get_loss
 from FSC147_dataset import build_dataset, batch_collate_fn
-from engine import evaluate, train_one_epoch, visualization
+from engine_sheep import evaluate, train_one_epoch, visualization
+# from engine import evaluate, train_one_epoch, visualization
 from models import build_model
 
 import matplotlib.pyplot as plt
@@ -64,7 +65,7 @@ def main(args):
         raise NotImplementedError
 
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, cfg.TRAIN.lr_drop)
-    # define dataset
+    # 定义数据集
     dataset_train = build_dataset(cfg, is_train=True)
     dataset_val = build_dataset(cfg, is_train=False)
 
@@ -85,6 +86,7 @@ def main(args):
         if cfg.VAL.visualization:
             mae = visualization(cfg, model, dataset_val, data_loader_val, device, cfg.DIR.output_dir)
         else:
+            # 评估过程
             mae = evaluate(model, data_loader_val, device, cfg.DIR.output_dir)
         return
 

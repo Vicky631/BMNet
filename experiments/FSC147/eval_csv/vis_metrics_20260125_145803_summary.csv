@@ -1,0 +1,2 @@
+dataset_type,total_samples,distance_thresh,avg_mae,avg_rmse,best_mae,best_rmse,avg_precision,std_precision,avg_recall,std_recall,avg_f1,std_f1
+visualization,1190,10.0,52.5591,155.6008,52.56,155.6,0.0,0.0,0.0,0.0,0.0,0.0

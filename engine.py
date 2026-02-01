@@ -15,7 +15,7 @@ import torch
 EVAL_CFG = {
     "distance_thresh": 10.0,  # 定位匹配距离阈值
     "dsizensity_map_size": (512, 512),  # 密度图固定尺寸
-    "annotation_path": '/mnt/mydisk/wjj/dataset/FSC_147/annotation_FSC147_384_with_gt.json',
+    "annotation_path": '/mnt/mydisk/wjj/dataset/FSC_147/annotation_FSC_147_384.json',
     "image_root_path": '/mnt/mydisk/wjj/dataset/FSC_147/images_384_VarV2',
     "csv_save_dir": "/mnt/mydisk/wjj/BMNet/experiments/FSC147/eval_csv"  # CSV保存目录
 }

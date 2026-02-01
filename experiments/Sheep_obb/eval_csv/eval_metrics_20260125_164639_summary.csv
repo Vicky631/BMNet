@@ -1,0 +1,2 @@
+dataset_type,total_samples,distance_thresh,avg_mae,avg_rmse,best_mae,best_rmse,avg_precision,std_precision,avg_recall,std_recall,avg_f1,std_f1
+sheep_obb_evaluation,1070,10.0,96.8065,232.9567,96.81,232.96,0.497,0.2747,0.4952,0.2197,0.4868,0.248
